@@ -20,8 +20,9 @@
       6000-DFFF  external data ROM km-z.4h
       F000-FFFF  firmware (4 KB, the "mcu" file)
 
-    Clock: unknown.  4 MHz (1 MHz E clock) is the figure the firmware's
-    timing was measured against.
+    The MCU is reported to be an MC6803 (no internal ROM: on the real board its
+    program sits in an external EPROM, apparently not dumped).  Clock: assumed
+    to be the 3.579545 MHz crystal of the sound board's MC6803 (E = 895 kHz).
 */
 
 #include "emu.h"

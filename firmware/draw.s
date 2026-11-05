@@ -21,8 +21,8 @@
 ; -----------------------------------------------------------------------------
 
 TILEMAP  .EQU $2000      ; tilemap RAM base in the MCU address space
-PACE_HALF .EQU 20000     ; E-clock ticks per half column pair: 56 x 20 ms =
-                         ; 1.12 s per level at 1 MHz, as measured on the PCB
+PACE_HALF .EQU 17898     ; E-clock ticks per half column pair: 56 x 20 ms =
+                         ; 1.12 s per level (PCB), at E = 3.579545 MHz / 4
 
 LEVEL    .EQU $87
 PAIR     .EQU $88        ; column pair 0..27

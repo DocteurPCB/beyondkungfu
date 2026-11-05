@@ -184,7 +184,7 @@ Consequences:
 
 ## Hardware-like pacing (firmware)
 
-The firmware keeps the 1 MHz E clock and paces the two operations measured on
+The firmware paces the two operations measured on
 the PCB with the 6801 free-running counter ($09-$0A): a cumulative schedule
 (pace_start / pace_wait), so a slow step is caught up by the next ones.
 
@@ -205,3 +205,25 @@ latched; otherwise it leaves the Z80's command byte alone and executes it next.
 (Writing 0xFE would both lose the text and make the main loop execute a bogus
 command 0xFE.) Measured in MAME: the text is drawn 1.12 s after 0x02, against
 1.13 s on the PCB.
+
+## The MCU is reported to be an MC6803
+
+An MC6803 has no internal ROM: its program must sit in an external EPROM on the
+Z board. MAME's `ROM_LOAD("mcu", 0x1000, NO_DUMP)` (an internal 4 KB mask ROM)
+therefore does not match such a part. That EPROM is not in the known ROM set:
+- `km-z.7j` (Z board) is Z80 data: the Z80 program references `0x8000-0xBFFF`
+  hundreds of times, it starts with a pointer table and holds no 6803 vectors;
+- `km-z.4h` has no 6803 vector table at its end or anywhere else (the only
+  look-alikes are HUD tile codes around `0x03D0`).
+So Irem's real firmware most likely still exists on the board as an ordinary
+EPROM near the MC6803 (probably a 2732 or 2764) and could be read with an
+EPROM programmer. That would replace this reconstruction for emulation.
+
+## Clock
+
+The LLE device now runs the MC6803 at 3.579545 MHz (E = 895 kHz), the crystal
+the sound board's MC6803 uses on the same PCB. This is an assumption. The pacing
+constants are expressed in E-clock ticks and were rescaled so that the
+background (1.12 s) and the clear (140 ms) keep their measured PCB durations.
+Measured in MAME: clear acknowledged after 155 ms, stage text sent 1.13 s after
+0x02 (PCB: 1.13 s). Unpaced commands are ~12 % slower than at 4 MHz.

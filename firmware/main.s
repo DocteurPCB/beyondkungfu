@@ -69,7 +69,7 @@ EN       .EQU $CF
 TAT      .EQU $DB        ; attribute for vpwpair
 PAIRM    .EQU $DC        ; vpwpair: $0F = mask the attribute offset, $FF = don't
 CROWS    .EQU $DF        ; clear: 64-byte blocks left in the current row
-PACE_ROW .EQU 4375       ; E-clock ticks per tile row: 32 x 4.375 ms = 140 ms
+PACE_ROW .EQU 3915       ; E-clock ticks per tile row: 32 x 4.375 ms = 140 ms (E = 895 kHz)
 
 ; =============================================================================
 reset:
