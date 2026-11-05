@@ -64,11 +64,23 @@ OPC = {
     ("CLR","IDX"):0x6F, ("CLR","EXT"):0x7F, ("TST","IDX"):0x6D, ("TST","EXT"):0x7D,
     ("JMP","IDX"):0x6E, ("JMP","EXT"):0x7E,
     ("JSR","IDX"):0xAD, ("JSR","DIR"):0x9D, ("JSR","EXT"):0xBD,
+    # extra 6801 / B-accumulator forms
+    ("LSRD","INH"):0x04, ("ASLD","INH"):0x05, ("LSLD","INH"):0x05,
+    ("SUBB","DIR"):0xD0, ("CMPB","DIR"):0xD1, ("ANDB","DIR"):0xD4, ("BITB","DIR"):0xD5,
+    ("EORB","DIR"):0xD8, ("ORAB","DIR"):0xDA,
+    ("CMPB","EXT"):0xF1, ("ADDB","EXT"):0xFB, ("SUBB","EXT"):0xF0,
+    ("CMPB","IDX"):0xE1, ("ADDB","IDX"):0xEB,
+    ("STAA","IDX"):0xA7,
 }
 
 INH = {k[0] for k in OPC if k[1]=="INH"}
 REL = {k[0] for k in OPC if k[1]=="REL"}
 IMM16_OPS = {"LDX","LDD","LDS","CPX","ADDD","SUBD"}
+# long branches: "LBxx label" -> inverse short branch over a JMP (LBRA -> JMP)
+INV = {"BCC":"BCS","BCS":"BCC","BEQ":"BNE","BNE":"BEQ","BPL":"BMI","BMI":"BPL",
+       "BVC":"BVS","BVS":"BVC","BHI":"BLS","BLS":"BHI","BGE":"BLT","BLT":"BGE",
+       "BGT":"BLE","BLE":"BGT"}
+LREL = {"L"+b for b in INV} | {"LBRA"}
 
 def _num(tok, labels, size8):
     tok = tok.strip()
@@ -150,6 +162,14 @@ class Assembler:
                     w = self._resolve(v) & 0xFFFF
                     out[pc+2*i] = w >> 8; out[pc+2*i+1] = w & 0xFF
                 continue
+            if mode == "LREL":
+                target = self._resolve(operand) & 0xFFFF
+                if mnem == "LBRA":
+                    out[pc] = 0x7E; out[pc+1] = target >> 8; out[pc+2] = target & 0xFF
+                else:
+                    out[pc] = OPC[(INV[mnem[1:]], "REL")]; out[pc+1] = 0x03
+                    out[pc+2] = 0x7E; out[pc+3] = target >> 8; out[pc+4] = target & 0xFF
+                continue
             op = OPC[(mnem, mode)]
             out[pc] = op
             if mode == "INH":
@@ -193,6 +213,7 @@ class Assembler:
     def _mode_size(self, mnem, operand):
         if mnem in INH: return "INH", 1
         if mnem in REL: return "REL", 2
+        if mnem in LREL: return "LREL", (3 if mnem == "LBRA" else 5)
         operand = operand.strip()
         if operand.endswith(",X") or operand.endswith(",x"):
             return "IDX", 2

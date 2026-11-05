@@ -14,3 +14,6 @@ __pycache__/
 *.o
 *.lst
 *.map
+# Renders derived from ROM data stay local
+*.png
+*.gif

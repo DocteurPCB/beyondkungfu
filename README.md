@@ -34,8 +34,12 @@ firmware/
   asm6803.py      Minimal 6803/6801 assembler (opcode table + two-pass)
   cpu6803.py      Minimal 6803 CPU emulator (used for validation, no MAME needed)
   decode.s        VALIDATED: data-ROM access + decryption + payload transform
-  test_decode.py  Assembles decode.s, runs it, compares byte-for-byte to the HLE
+  draw.s          VALIDATED: level background drawing (draw_level_strip)
+  test_decode.py  Checks decode.s byte-for-byte against the HLE (all 0x8000 bytes)
+  test_draw.py    Checks the full tilemap of every level slot against the HLE
 tools/
+  ref_mcu.py        Reference model, line-for-line port of the MAME HLE (the oracle)
+  render_level.py   Renders the composed backgrounds to PNG from your own ROMs
   verify_decode.py  Dumps the decrypted data-ROM structures (level tables, etc.)
 docs/
   SPEC.md         Reverse-engineered MCU behaviour (commands, formats, memory map)
@@ -48,8 +52,9 @@ No ROM data is included (copyright Irem). To run the tests, supply your own
 `km-z.4h` (the MCU's external data ROM, 32 KB, from the `bkungfu` set):
 
 ```bash
-python3 firmware/test_decode.py /path/to/km-z.4h   # expects byte-exact match
-python3 tools/verify_decode.py  /path/to/km-z.4h   # dumps decoded structures
+python3 firmware/test_decode.py /path/to/km-z.4h   # cipher: byte-exact vs HLE
+python3 firmware/test_draw.py   /path/to/km-z.4h   # tilemaps: byte-exact vs HLE
+python3 tools/render_level.py   /path/to/bkungfu_roms out/   # PNG of each level
 ```
 
 ## Status
@@ -58,8 +63,10 @@ python3 tools/verify_decode.py  /path/to/km-z.4h   # dumps decoded structures
 |-------|-------|
 | Data-ROM cipher + payload transform (`decode.s`) | ✅ validated byte-exact vs HLE over all 0x8000 addresses |
 | 6803 assembler + emulator toolchain | ✅ working |
+| Level background drawing (`draw.s`) | ✅ byte-exact vs HLE on all 16 level slots |
+| Drawing speed | ❌ ~19M instructions/level (~70 s at 1 MHz) vs ~0.25 s on hardware: must be optimised |
 | Command dispatcher / mailbox loop | ⬜ todo |
-| Level-strip drawing, objects, text, HUD | ⬜ todo |
+| Objects, text, HUD | ⬜ todo |
 | Assumed MCU memory map | 🟡 draft (see `docs/SPEC.md`) |
 | MAME LLE patch + on-screen validation | ⬜ todo (needs recompiled MAME) |
 

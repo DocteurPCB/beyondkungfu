@@ -40,9 +40,9 @@ R_DECRYPT = asm.labels["decrypt"]
 R_PAYLOAD = asm.labels["decode_payload"]
 
 def call_fw(routine, addr):
-    cpu.A = cpu.B = 0; cpu.X = 0; cpu.SP = 0x01FF
-    cpu.m[0x40] = addr & 0xFF          # DAL
-    cpu.m[0x41] = (addr >> 8) & 0xFF   # DAH
+    cpu.A = cpu.B = 0; cpu.X = 0; cpu.SP = 0x00FF
+    cpu.m[asm.equ['DAL']] = addr & 0xFF
+    cpu.m[asm.equ['DAH']] = (addr >> 8) & 0xFF
     cpu.call(routine)
     return cpu.A
 

@@ -11,14 +11,18 @@
 ;   decode_payload -> A = payload-decoded byte
 ; -----------------------------------------------------------------------------
 
+; Variables live in the 6801-family internal RAM ($80-$FF).  16-bit values are
+; stored big-endian (high byte first) so they can be loaded with LDX/LDD.
 BANK_REG .EQU $20        ; data-ROM window bank latch (bit0)
-DAL      .EQU $40        ; logical data address, low
-DAH      .EQU $41        ; logical data address, high
-XH       .EQU $42        ; scratch: window physical addr, high
-XL       .EQU $43        ; scratch: window physical addr, low
-CIPH     .EQU $44        ; cipher (raw) byte
-IDX      .EQU $45        ; index = (DAL + DAH) & 0xFF
-VAL      .EQU $46        ; decrypted value (for payload transform)
+DAH      .EQU $80        ; logical data address, high  } LDX DAH
+DAL      .EQU $81        ; logical data address, low   }
+XH       .EQU $82        ; scratch: window physical addr, high
+XL       .EQU $83        ; scratch: window physical addr, low
+CIPH     .EQU $84        ; cipher (raw) byte
+IDX      .EQU $85        ; index = (DAL + DAH) & 0xFF
+VAL      .EQU $86        ; decrypted value (for payload transform)
+WH       .EQU $87        ; pword result, high  } LDX WH
+WL       .EQU $88        ; pword result, low   }
 
         .ORG $F000
 
@@ -116,4 +120,19 @@ dp_sub:
         BNE  dp_done            ; value odd -> subtract 0
         SUBA #$02               ; value even -> subtract 2
 dp_done:
+        RTS
+
+; --- pword: WH/WL = decode_payload(DA) | decode_payload(DA+1) << 8 ----------
+; (little-endian payload word).  DAH/DAL is preserved.
+pword:
+        JSR  decode_payload
+        STAA WL
+        LDX  DAH
+        INX
+        STX  DAH
+        JSR  decode_payload
+        STAA WH
+        LDX  DAH
+        DEX
+        STX  DAH
         RTS

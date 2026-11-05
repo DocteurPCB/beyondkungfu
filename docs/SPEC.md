@@ -25,7 +25,7 @@ The HLE abstracts the MCU's own bus away, so we define a consistent one:
 | Range | Use |
 |-------|-----|
 | `0x0020` | data-ROM window bank latch (bit0) |
-| `0x0040..0x00FF` | scratch RAM |
+| `0x0080..0x00FF` | internal RAM (variables + stack), as on 6801-family parts |
 | `0x0800..0x0FFF` | shared mailbox (2 KB), same bytes the Z80 sees |
 | `0x2000..0x5FFF` | tilemap RAM (16 KB) the MCU writes into |
 | `0x8000..0xBFFF` | 16 KB window onto `km-z.4h`, half selected by the bank latch |
@@ -92,3 +92,17 @@ Tiles are emitted as adjacent bytes: **tile code**, then **attribute**.
 `code = tilebyte | ((attr & 0xE0) << 3) | (bg_bank << 11)`;
 `palette = attr & 0x1F`. The background bank bit (code bit 11) comes from a
 separate Z80 latch (I/O `0x83`), not from the MCU.
+
+## Background tile bank
+
+Tile code bit 11 comes from the Z80's background-bank latch (I/O `0x83`), not
+the MCU. Rendering the level data with bank **1** gives the correct graphics
+(it matches real-hardware footage); bank 0 gives scrambled tiles.
+
+## Performance target
+
+The HLE paces level drawing at one strip per 175 µs, about 14 video frames for
+the 56 × 26 strips, which matches the hardware loading cadence. A naive
+per-strip decode (re-reading all four streams for every strip, like the HLE
+does) costs about 13,000 6803 instructions per strip, which is far too slow for
+a ~1 MHz MCU. The real firmware must decode each column pair's streams once.
