@@ -54,8 +54,9 @@ background), which the HLE never shows. No frame differs in content.
 
 - This is not Irem's firmware. It reproduces the HLE's behaviour, it does not
   recover the original code.
-- The MCU-side bus (addresses, mailbox latches) is a reconstruction. The MCU is
-  reported to be an MC6803; its clock is assumed to be 3.579545 MHz, like the
-  sound board's MC6803.
+- The MCU-side bus (addresses, mailbox latches) is a reconstruction. The MCU is a
+  6801-family part with internal ROM (exact type unconfirmed), emulated here by
+  an MC6803 core reading the firmware at F000-FFFF; its clock is assumed to be
+  3.579545 MHz, like the sound board's MC6803.
 - The firmware paces the level background (1.12 s) and the clear (140 ms) to
   match PCB footage; other commands are not paced.

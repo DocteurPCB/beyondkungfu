@@ -206,23 +206,29 @@ latched; otherwise it leaves the Z80's command byte alone and executes it next.
 command 0xFE.) Measured in MAME: the text is drawn 1.12 s after 0x02, against
 1.13 s on the PCB.
 
-## The MCU is reported to be an MC6803
+## Which MCU
 
-An MC6803 has no internal ROM: its program must sit in an external EPROM on the
-Z board. MAME's `ROM_LOAD("mcu", 0x1000, NO_DUMP)` (an internal 4 KB mask ROM)
-therefore does not match such a part. That EPROM is not in the known ROM set:
-- `km-z.7j` (Z board) is Z80 data: the Z80 program references `0x8000-0xBFFF`
-  hundreds of times, it starts with a pointer table and holds no 6803 vectors;
-- `km-z.4h` has no 6803 vector table at its end or anywhere else (the only
-  look-alikes are HUD tile codes around `0x03D0`).
-So Irem's real firmware most likely still exists on the board as an ordinary
-EPROM near the MC6803 (probably a 2732 or 2764) and could be read with an
-EPROM programmer. That would replace this reconstruction for emulation.
+David Haywood ("Haze"), who wrote the HLE, describes it as an MCU whose
+**internal ROM remains undumped**, and which decrypts the background data from
+the external ROM `km-z.4h` in software. This matches MAME's
+`ROM_LOAD("mcu", 0x0000, 0x1000, NO_DUMP)`: 4 KB of internal ROM.
+
+It also matches the ROM set: none of the dumped ROMs holds a program for the
+MCU (`km-z.7j` is Z80 data with no 6803 vectors; `km-z.4h` is tables, text,
+encrypted level data and `FF` padding, with no code and no vector table).
+
+An MC6803 proper has no internal ROM, so a part described as "MC6803" is most
+likely another member of the 6801 family with the same pinout and 4 KB of
+on-chip program memory, possibly with a custom Irem marking:
+- mask ROM: MC6801U4, HD6301V1 (readable only by decapping);
+- EPROM: MC68701U4, HD63701V0 (readable with an EPROM programmer).
+The exact part is unconfirmed; the full marking on the PCB would settle it.
+HD6301-family parts execute many instructions in fewer cycles than a 6801.
 
 ## Clock
 
-The LLE device now runs the MC6803 at 3.579545 MHz (E = 895 kHz), the crystal
-the sound board's MC6803 uses on the same PCB. This is an assumption. The pacing
+The LLE device runs the MCU at 3.579545 MHz (E = 895 kHz), the crystal the
+sound board's MC6803 uses on the same PCB. This is an assumption. The pacing
 constants are expressed in E-clock ticks and were rescaled so that the
 background (1.12 s) and the clear (140 ms) keep their measured PCB durations.
 Measured in MAME: clear acknowledged after 155 ms, stage text sent 1.13 s after

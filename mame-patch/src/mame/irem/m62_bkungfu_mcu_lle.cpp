@@ -20,9 +20,10 @@
       6000-DFFF  external data ROM km-z.4h
       F000-FFFF  firmware (4 KB, the "mcu" file)
 
-    The MCU is reported to be an MC6803 (no internal ROM: on the real board its
-    program sits in an external EPROM, apparently not dumped).  Clock: assumed
-    to be the 3.579545 MHz crystal of the sound board's MC6803 (E = 895 kHz).
+    The real MCU is a 6801-family part whose 4 KB internal ROM is undumped
+    (exact type unconfirmed).  An MC6803 core reading the firmware at F000-FFFF
+    behaves the same.  Clock: assumed to be the 3.579545 MHz crystal of the
+    sound board's MC6803 (E = 895 kHz).
 */
 
 #include "emu.h"

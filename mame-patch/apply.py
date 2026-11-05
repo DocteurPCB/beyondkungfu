@@ -68,7 +68,7 @@ void m62_bkungfu_state::bkungfu_lle(machine_config &config)
 	m_maincpu->set_addrmap(AS_PROGRAM, &m62_bkungfu_state::mem_map_lle);
 	m_maincpu->set_addrmap(AS_IO, &m62_bkungfu_state::io_map);
 
-	BKUNGFU_MCU_LLE(config, m_mcu_lle, 3.579545_MHz_XTAL); // MC6803; clock assumed = sound CPU's crystal
+	BKUNGFU_MCU_LLE(config, m_mcu_lle, 3.579545_MHz_XTAL); // 6801-family MCU, clock assumed = sound CPU's crystal
 	m_mcu_lle->tilemap_ram_w().set(FUNC(m62_bkungfu_state::tilemap_ram_w));
 
 	MCFG_VIDEO_START_REMOVE()
@@ -96,7 +96,7 @@ else:
     # already patched: refresh the MCU clock and the firmware hashes
     import re
     drv = re.sub(r"BKUNGFU_MCU_LLE\(config, m_mcu_lle, [^)]*\);[^\n]*",
-                 "BKUNGFU_MCU_LLE(config, m_mcu_lle, 3.579545_MHz_XTAL); // MC6803; clock assumed = sound CPU's crystal",
+                 "BKUNGFU_MCU_LLE(config, m_mcu_lle, 3.579545_MHz_XTAL); // 6801-family MCU, clock assumed = sound CPU's crystal",
                  drv)
     drv = re.sub(r'ROM_LOAD\( "mcu",     0x0000, 0x1000, CRC\([0-9a-f]{8}\) SHA1\([0-9a-f]{40}\) \)',
                  f'ROM_LOAD( "mcu",     0x0000, 0x1000, CRC({crc}) SHA1({sha1}) )', drv)

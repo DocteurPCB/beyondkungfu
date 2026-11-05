@@ -6,13 +6,12 @@ sequel to *Kung-Fu Master*.
 
 ## What this is (and what it is not)
 
-The game's PCB uses a Motorola-6800-family microcontroller (reported to be an
-**MC6803**, see `docs/SPEC.md`) that acts as a tilemap/graphics coprocessor: the Z80 sends it commands through a mailbox and the MCU decodes a
+The game's PCB uses a Motorola 6801-family microcontroller with 4 KB of
+**internal ROM** (exact part unconfirmed, see `docs/SPEC.md`) that acts as a
+tilemap/graphics coprocessor: the Z80 sends it commands through a mailbox and the MCU decodes a
 partially-encrypted external ROM (`km-z.4h`) into the background and HUD tiles.
 
-Its program has **never been dumped** (it is `NO_DUMP` in MAME). An MC6803 has
-no internal ROM, so the program should sit in an external EPROM on the board,
-which could still be read. MAME runs
+Its internal ROM has **never been dumped** (it is `NO_DUMP` in MAME). MAME runs
 the game today via a **C++ high-level emulation (HLE)** of the MCU's behaviour
 (`src/mame/irem/m62_bkungfu_mcu.cpp`, by David Haywood & Andrea Bogazzi), which
 is why the driver is flagged `MACHINE_UNEMULATED_PROTECTION`.
