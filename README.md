@@ -27,6 +27,15 @@ low-level (LLE) replacement that a patched MAME can execute on a real CPU core.
 > Running this firmware requires a MAME source patch (a real `m6803`/`hd6301`
 > core + a memory map) and a recompile. See `mame-patch/` (WIP).
 
+## Two variants: Motorola 6803 and Intel 8751
+
+The real MCU's type is unconfirmed, so the firmware exists in two versions with
+identical behaviour (both checked byte for byte against the HLE):
+- `firmware/`: Motorola 6801 family (MAME set `bkungfulle`, 3.579545 MHz);
+- `firmware51/`: Intel 8751, as on Irem's M72 boards of the same years, on its
+  own 8 MHz crystal (MAME set `bkungfu8751`). Clues for this hypothesis are in
+  `docs/SPEC.md`.
+
 ## Repository layout
 
 ```
@@ -55,6 +64,13 @@ mame-patch/
   src/...         The LLE MCU device: a real 6803 core running the firmware
   README.md       Build and run instructions
 tools/mame_autoplay.lua  MAME script: attract mode, coin, start, crude play
+firmware51/       Intel 8751 variant
+  mcu51.asm       the whole firmware (as31 syntax)
+  build51.py      generates the cipher tables, assembles, checks the layout
+  cpu8051.py      8051 emulator, checked against ucsim (4160 ALU/flag results)
+  fw51.py         the firmware as an MCU with the mailbox latches, for tests
+  test_decode51.py, test_draw51.py  byte-exact checks vs the HLE
+  (firmware/test_main.py runs the full scenario with MCU=8751)
 ```
 
 ## ROMs
@@ -66,7 +82,9 @@ No ROM data is included (copyright Irem). To run the tests, supply your own
 python3 firmware/test_decode.py /path/to/km-z.4h   # cipher: byte-exact vs HLE
 python3 firmware/test_draw.py   /path/to/km-z.4h   # tilemaps: byte-exact vs HLE
 python3 firmware/test_main.py   /path/to/km-z.4h   # whole MCU: mailbox scenario vs HLE
-python3 firmware/build.py mcu                      # writes the 4 KB firmware image
+python3 firmware/build.py mcu                      # writes the 4 KB firmware image (6803)
+python3 firmware51/build51.py mcu                  # writes the 4 KB firmware image (8751)
+MCU=8751 python3 firmware/test_main.py /path/to/km-z.4h
 python3 tools/render_level.py   /path/to/bkungfu_roms out/   # PNG of each level
 ```
 

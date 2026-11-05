@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
 """Drive the 6803 firmware and the HLE reference with the same Z80 mailbox
 writes, and compare tilemap + mailbox after every step.
-usage: test_main.py <km-z.4h>"""
+usage: [MCU=8751] test_main.py <km-z.4h>"""
 import sys, os
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
-from fwmcu import FirmwareMCU
+if os.environ.get("MCU") == "8751":           # Intel 8751 variant
+    sys.path.insert(0, os.path.join(HERE, "..", "firmware51"))
+    from fw51 import FirmwareMCU51 as FirmwareMCU
+else:                                          # 6803 variant (default)
+    from fwmcu import FirmwareMCU
 from ref_mcu import RefMCU
 
 DATA = open(sys.argv[1], "rb").read()

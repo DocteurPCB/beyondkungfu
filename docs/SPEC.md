@@ -233,3 +233,21 @@ constants are expressed in E-clock ticks and were rescaled so that the
 background (1.12 s) and the clear (140 ms) keep their measured PCB durations.
 Measured in MAME: clear acknowledged after 155 ms, stage text sent 1.13 s after
 0x02 (PCB: 1.13 s). Unpaced commands are ~12 % slower than at 4 MHz.
+
+## Intel 8751 hypothesis (firmware51/)
+
+Irem's only other MCU of these years is the Intel 8751 of the M72 boards
+(1987-1991): 4 KB of internal EPROM, its own 8 MHz crystal, a RAM shared with
+the main CPU. Two clues point the same way for Beyond Kung-Fu:
+- every 16-bit value in `km-z.4h` is little-endian, Intel's convention; a 6801
+  reads 16-bit values the other way round and has to swap every pointer;
+- at 8 MHz (one machine cycle = 1.5 us) the plainest 8051 clear loop (12
+  cycles per 2 bytes) takes ~147 ms for the 16 KB tilemap, close to the
+  ~140 ms measured on the PCB; on a 1 MHz 6801 the same kind of loop is 2-3x
+  faster than the hardware.
+Neither is proof. The 8751 firmware uses the same external memory map
+(`MOVX`): latches `0400/0401`, mailbox `0800`, tilemap `2000`, `km-z.4h` at
+`8000-FFFF`, and paces the background and the clear on timer 0. Measured in
+MAME (`bkungfu8751`): clear acknowledged after 155 ms, stage text 1.13 s after
+0x02 (PCB: 1.13 s); 94.9 % of 60 s of attract-mode frames are exact copies of
+HLE frames.

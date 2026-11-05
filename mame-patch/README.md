@@ -31,6 +31,22 @@ cd /path/to/mame && make -j8 SUBTARGET=bkungfu SOURCES=src/mame/irem/m62.cpp,src
 (Or rebuild your usual full MAME after `apply.py`.) Rerun `apply.py` after any
 firmware change: it refreshes the CRC32/SHA1 in the driver.
 
+## Intel 8751 variant
+
+`apply51.py` adds a third set, `bkungfu8751`, whose MCU is a MAME `I8751` core
+at 8 MHz running `firmware51/`. It works with or without `apply.py`:
+
+```bash
+python3 firmware51/build51.py mcu51
+```
+
+```bash
+python3 mame-patch/apply51.py /path/to/mame mcu51
+```
+
+Add `src/mame/irem/m62_bkungfu_mcu51.cpp` to the `SOURCES` list when building a
+subtarget, and put the file as `roms/bkungfu8751/mcu`.
+
 ## ROMs
 
 `bkungfulle` is a clone of `bkungfu`: keep your `bkungfu` set as it is and add
