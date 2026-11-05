@@ -135,6 +135,8 @@ at 1 MHz. So either the MCU runs well above 1 MHz, or it is a part with faster
 instruction timings (HD6301-family parts execute many 6801 instructions in
 fewer cycles), or the decryption is partly done in hardware. The MCU type and
 clock are not confirmed; the crystal next to the MCU on the PCB would settle it.
+Update: the PCB footage below shows the real MCU is slower than this firmware, so
+the ~255 ms target above was wrong (see "Real-hardware timing").
 
 Note: when reading sequentially the cipher index does not just increment; at a
 page crossing it jumps by 2, so the firmware recomputes it from the pointer.
@@ -151,3 +153,31 @@ When a command and slot triggers are pending together, the firmware handles the
 command first, while the HLE handles writes in arrival order. A slot update
 during a level draw is also handled after the draw. Final contents only differ
 if the Z80 relies on that ordering.
+
+## Real-hardware timing (measured on PCB footage)
+
+Source: a ~24 s camera recording of an original PCB starting a game (PAL,
+interlaced, analysed field by field at 50 Hz, i.e. 20 ms resolution).
+
+| Event | Real PCB | HLE (MAME) | This firmware, 1 MHz E clock |
+|-------|----------|------------|------------------------------|
+| 0x08 clear, visible top-to-bottom wipe | ~140 ms | instant | 46 ms |
+| first visible screen of the background (8 of 56 column strips) | ~200 ms | 35 ms | 89 ms |
+| "1-PLAYER PRECINCT" text after the background starts | 1.13 s | 0.96 s | 0.94 s |
+
+The Z80 sends the stage text a fixed ~0.95 s after command 0x02 (the player's
+walk-in), but only once 0x02 has been acknowledged. On the PCB the text comes
+0.17 s later than that, so the real MCU was still drawing: the whole background
+takes about 1.1 s on hardware (1.4 s if the 200 ms for 8 columns is extrapolated
+linearly to 56).
+
+Consequences:
+- The HLE's pacing (175 us per strip, 255 ms per level) matches the time the
+  visible screen takes to fill (~14 frames), not the whole level: it draws
+  about 4x too fast, and its clear is instant where the hardware's takes ~140 ms.
+- This firmware at a 1 MHz E clock is faster than the real MCU: about 1.8x for
+  the background and 3x for the clear. The real MCU is consistent with a ~1 MHz
+  6801-family part running straightforward code (a plain 2-bytes-per-iteration
+  clear loop takes ~150 ms at 1 MHz).
+- No single clock makes this firmware match every command's timing, because its
+  code is not Irem's; about 55 % of the current clock matches the background.

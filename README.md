@@ -77,7 +77,7 @@ python3 tools/render_level.py   /path/to/bkungfu_roms out/   # PNG of each level
 | Data-ROM cipher + payload transform (`decode.s`) | ✅ validated byte-exact vs HLE over all 0x8000 addresses |
 | 6803 assembler + emulator toolchain | ✅ working |
 | Level background drawing (`draw.s`) | ✅ byte-exact vs HLE on all 16 level slots |
-| Drawing speed | 🟡 0.73M cycles/level worst case (0.73 s at 1 MHz, was ~70 s) vs ~0.25 s on hardware; objects, clear, text 1.3-1.4x faster; see `docs/SPEC.md` |
+| Drawing speed | 🟡 0.73M cycles/level worst case (0.73 s at 1 MHz, was ~70 s) ; real PCB footage shows the hardware takes ~1.1 s, so the firmware is already faster than the real MCU; see `docs/SPEC.md` |
 | Mailbox loop + all commands (`main.s`) | ✅ tilemap + mailbox identical to HLE over the full scenario |
 | Objects, text, HUD slots | ✅ same scenario: 17 objects, 128 ROM texts, mailbox text, 8 slots and edge cases |
 | Assumed MCU memory map | 🟡 draft (see `docs/SPEC.md`) |
