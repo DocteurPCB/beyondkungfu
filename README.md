@@ -49,7 +49,11 @@ tools/
   verify_decode.py  Dumps the decrypted data-ROM structures (level tables, etc.)
 docs/
   SPEC.md         Reverse-engineered MCU behaviour (commands, formats, memory map)
-mame-patch/       (planned) LLE driver variant + build instructions
+mame-patch/
+  apply.py        Adds the bkungfulle (LLE) clone set to a MAME source tree
+  src/...         The LLE MCU device: a real 6803 core running the firmware
+  README.md       Build and run instructions
+tools/mame_autoplay.lua  MAME script: attract mode, coin, start, crude play
 ```
 
 ## ROMs
@@ -76,7 +80,7 @@ python3 tools/render_level.py   /path/to/bkungfu_roms out/   # PNG of each level
 | Mailbox loop + all commands (`main.s`) | ✅ tilemap + mailbox identical to HLE over the full scenario |
 | Objects, text, HUD slots | ✅ same scenario: 17 objects, 128 ROM texts, mailbox text, 8 slots and edge cases |
 | Assumed MCU memory map | 🟡 draft (see `docs/SPEC.md`) |
-| MAME LLE patch + on-screen validation | ⬜ todo (needs recompiled MAME) |
+| MAME LLE patch (`mame-patch/`) | 🟡 written, being built and tested |
 
 ## Credits
 
