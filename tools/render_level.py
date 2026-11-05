@@ -27,10 +27,11 @@ pal = np.array([[lvl[PROM[i] & 15], lvl[PROM[0x100 + i] & 15], lvl[PROM[0x200 + 
 ymax = max(1, (pal @ np.array([299, 587, 114])).max())
 pal = np.clip(pal * (255000 / ymax), 0, 255).astype(np.uint8)
 
-# Tiles: gfx_8x8x3_planar, plane at RGN_FRAC(0,3) is the MSB.
+# Tiles: gfx_8x8x3_planar = { RGN_FRAC(2,3), RGN_FRAC(1,3), RGN_FRAC(0,3) } and
+# MAME gives the first listed plane the MSB: bit2 = km-z.3a, bit0 = km-z.3d.
 g = np.frombuffer(GFX, np.uint8).reshape(3, 4096, 8)
 bits = np.unpackbits(g, axis=2).reshape(3, 4096, 8, 8)
-TILES = (bits[0] << 2) | (bits[1] << 1) | bits[2]
+TILES = (bits[2] << 2) | (bits[1] << 1) | bits[0]
 
 
 def render(tram, bank=1, rows=range(6, 32), cols=range(0, 224)):
