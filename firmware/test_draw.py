@@ -11,7 +11,7 @@ from build import build
 from cpu6803 import CPU6803
 from ref_mcu import RefMCU, TILEMAP_BYTES
 
-TARGET_MS = 56 * 26 * 0.175        # HLE pacing = observed hardware cadence
+TARGET_MS = 1120                   # whole background on the real PCB (docs/SPEC.md)
 CLOCK_HZ = 1_000_000               # assumed MCU E clock (not confirmed)
 
 DATA = open(sys.argv[1], "rb").read()
@@ -38,6 +38,6 @@ for slot in slots:
     print(f"slot {slot:2d}: {msg}  {cpu.cycles:>9,} cycles = {ms:6.1f} ms à 1 MHz")
 
 print(f"\npire cas: {worst:,} cycles = {worst / CLOCK_HZ * 1000:.1f} ms à 1 MHz "
-      f"(objectif ~{TARGET_MS:.0f} ms, soit {worst / CLOCK_HZ * 1000 / TARGET_MS:.2f}x)")
+      f"(vrai PCB ~{TARGET_MS:.0f} ms)")
 print("==> TOUS LES NIVEAUX IDENTIQUES À L'HLE" if ok_all else "==> ÉCHEC")
 sys.exit(0 if ok_all else 1)

@@ -2,6 +2,7 @@
 """Tiny Motorola 6803/6801 CPU emulator (subset) used to validate MCU firmware.
 
 Memory model (our chosen MCU bus convention, see docs/SPEC.md):
+  0x0009-0x000A : 6801 free-running counter (one tick per E cycle)
   0x0080-0x00FF : internal RAM (variables + stack)
   0x0800-0x0FFF : shared mailbox (2K)
   0x2000-0x5FFF : tilemap RAM (16K)
@@ -61,6 +62,10 @@ class CPU6803:
     # ---- memory ----
     def rd(self, a):
         a &= 0xFFFF
+        if a == 0x09:                       # 6801 free-running counter, high
+            return (self.cycles >> 8) & 0xFF
+        if a == 0x0A:                       # ... and low (one tick per E cycle)
+            return self.cycles & 0xFF
         if DATA_BASE <= a < DATA_END:
             idx = a - DATA_BASE
             return self.data_rom[idx] if idx < len(self.data_rom) else 0xFF

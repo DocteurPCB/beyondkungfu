@@ -56,5 +56,5 @@ background), which the HLE never shows. No frame differs in content.
   recover the original code.
 - The MCU-side bus (addresses, mailbox latches) and the 4 MHz clock are
   reconstructions; the real board may differ.
-- The level background draws in about 1 s at this clock, against about 0.25 s
-  on the real board (see `docs/SPEC.md`), so stage loads take a little longer.
+- The firmware paces the level background (1.12 s) and the clear (140 ms) to
+  match PCB footage at this clock; other commands are not paced.

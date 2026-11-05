@@ -68,6 +68,8 @@ BOSSF    .EQU $CE
 EN       .EQU $CF
 TAT      .EQU $DB        ; attribute for vpwpair
 PAIRM    .EQU $DC        ; vpwpair: $0F = mask the attribute offset, $FF = don't
+CROWS    .EQU $DF        ; clear: 64-byte blocks left in the current row
+PACE_ROW .EQU 4375       ; E-clock ticks per tile row: 32 x 4.375 ms = 140 ms
 
 ; =============================================================================
 reset:
@@ -138,8 +140,11 @@ command:
         LBEQ cfe
         RTS                     ; unknown command: no acknowledge
 ack0:
-        LDAA #$FE
+        LDAA CMDLAT             ; a new command arrived while this one ran:
+        BMI  ack_skip           ; the Z80 has moved on, leave its command byte
+        LDAA #$FE               ; in place for the main loop to execute
         STAA MBOX
+ack_skip:
         RTS
 
 c01:
@@ -153,7 +158,11 @@ c02:
 c08:
         TST  RUNNING
         BEQ  c08b
+        JSR  pace_start         ; top-to-bottom wipe, ~140 ms as on the PCB
         LDX  #TILEMAP           ; clear: (tile mbox[2], attribute mbox[1])
+ct_row:
+        LDAA #8                 ; 8 x 64 bytes = one tile row (512 bytes)
+        STAA CROWS
         LDAA MBOX+2
         LDAB MBOX+1
 ct_loop:
@@ -193,11 +202,15 @@ ct_loop:
         LDAB #64
         ABX
         PULB
-        CPX  #TMEND
+        DEC  CROWS
         BNE  ct_loop
+        LDD  #PACE_ROW
+        JSR  pace_wait
+        CPX  #TMEND
+        BNE  ct_row
 c08b:
         CLR  INITF
-        BRA  ack0
+        JMP  ack0
 
 cfe:
         LDAA #1

@@ -44,6 +44,22 @@ class FirmwareMCU:
             c.step()
         raise RuntimeError(f"firmware never went idle (PC={c.PC:04x})")
 
+    def z80_post(self, offset, data):
+        """A Z80 write that does NOT wait for the MCU (it may be busy)."""
+        m = self.cpu.m
+        if offset < 0x800:
+            m[MBOX + offset] = data & 0xFF
+        if offset == 0:
+            m[CMDLAT] |= 0x80
+        if 0x10 <= offset < 0x30 and not offset & 3:
+            m[SLOTLAT] |= 1 << ((offset - 0x10) >> 2)
+
+    def run_cycles(self, n):
+        """Let the MCU run for n cycles, idle or not."""
+        end = self.cpu.cycles + n
+        while self.cpu.cycles < end:
+            self.cpu.step()
+
     def z80_write(self, offset, data):
         m = self.cpu.m
         if offset < 0x800:

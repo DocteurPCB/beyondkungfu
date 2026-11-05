@@ -21,6 +21,8 @@
 ; -----------------------------------------------------------------------------
 
 TILEMAP  .EQU $2000      ; tilemap RAM base in the MCU address space
+PACE_HALF .EQU 20000     ; E-clock ticks per half column pair: 56 x 20 ms =
+                         ; 1.12 s per level at 1 MHz, as measured on the PCB
 
 LEVEL    .EQU $87
 PAIR     .EQU $88        ; column pair 0..27
@@ -58,11 +60,14 @@ draw_level:
         ADDD #$0200
         JSR  rword              ; plaintext level directory entry
         STD  BLKH
+        JSR  pace_start
         CLR  PAIR
 dl_pair:
         CLR  HALF
 dl_half:
         BSR  draw_half
+        LDD  #PACE_HALF         ; hardware-like pace: see docs/SPEC.md
+        JSR  pace_wait
         INC  HALF
         LDAA HALF
         CMPA #2

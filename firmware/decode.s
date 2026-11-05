@@ -115,3 +115,24 @@ rword:
         LDAA 1,X
         LDAB 0,X
         RTS
+
+; --- pacing on the 6801 free-running counter ($09-$0A, one tick per E cycle)
+; pace_start sets a schedule origin; each pace_wait(D) moves the deadline D
+; ticks further and waits for it.  Deadlines accumulate, so a step that
+; overruns is caught up by the next ones.  D must stay below 32768 ticks.
+FRCH     .EQU $09
+PENDH    .EQU $DD        ; current deadline } LDD/STD PENDH
+PENDL    .EQU $DE
+
+pace_start:
+        LDD  FRCH
+        STD  PENDH
+        RTS
+pace_wait:
+        ADDD PENDH
+        STD  PENDH
+pw_loop:
+        LDD  FRCH
+        SUBD PENDH
+        BMI  pw_loop
+        RTS

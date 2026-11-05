@@ -91,6 +91,16 @@ cmd(0x05);                            check("0x05 : acquittement simple")
 for lvl in (1, 4, 0, 13):
     cmd(0x01, mb={1: lvl}); cmd(0x02)
     check(f"0x01 + 0x02 : décor du slot {lvl}")
+# The real Z80 sends the stage text ~0.95 s after 0x02 without waiting for its
+# acknowledge; at hardware speed the MCU is still drawing then.  The pending
+# command must be executed after the draw, not lost or replaced by the ack.
+w(1, 7); w(0, 0x01)
+fw.z80_post(0, 0x02); ref.z80_write(0, 0x02)
+fw.run_cycles(500_000)                                   # mid-draw
+fw.z80_post(1, 0x2E); fw.z80_post(0, 0x14)
+ref.z80_write(1, 0x2E); ref.z80_write(0, 0x14)
+fw.run()
+check("commande 0x14 reçue pendant le dessin du décor : exécutée ensuite, acquittée")
 cmd(0x08, mb={1: 0x19, 2: 0x05});     check("0x08 en cours de partie")
 slot(0x10, 0x01, 0x00, 0x01, 0x00);   check("slot après 0x08 : HUD non redessiné (non initialisé)")
 cmd(0x0A);                            check("0x0A à nouveau")

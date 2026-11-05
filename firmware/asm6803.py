@@ -56,7 +56,7 @@ OPC = {
     ("LDX","IDX"):0xEE, ("STX","IDX"):0xEF, ("LDX","EXT"):0xFE, ("STX","EXT"):0xFF,
     ("LDD","IMM16"):0xCC, ("LDD","DIR"):0xDC, ("STD","DIR"):0xDD,
     ("LDD","IDX"):0xEC, ("STD","IDX"):0xED, ("LDD","EXT"):0xFC, ("STD","EXT"):0xFD,
-    ("ADDD","IMM16"):0xC3, ("ADDD","DIR"):0xD3, ("SUBD","IMM16"):0x83,
+    ("ADDD","IMM16"):0xC3, ("ADDD","DIR"):0xD3, ("SUBD","IMM16"):0x83, ("SUBD","DIR"):0x93, ("SUBD","EXT"):0xB3,
     ("LDS","IMM16"):0x8E, ("LDS","DIR"):0x9E, ("STS","DIR"):0x9F,
     ("CPX","IMM16"):0x8C, ("CPX","DIR"):0x9C,
     # mem idx/ext (inc/dec/clr/shift)

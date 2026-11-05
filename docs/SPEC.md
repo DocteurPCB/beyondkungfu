@@ -181,3 +181,27 @@ Consequences:
   clear loop takes ~150 ms at 1 MHz).
 - No single clock makes this firmware match every command's timing, because its
   code is not Irem's; about 55 % of the current clock matches the background.
+
+## Hardware-like pacing (firmware)
+
+The firmware keeps the 1 MHz E clock and paces the two operations measured on
+the PCB with the 6801 free-running counter ($09-$0A): a cumulative schedule
+(pace_start / pace_wait), so a slow step is caught up by the next ones.
+
+| Operation | Pace | Total | PCB |
+|-----------|------|-------|-----|
+| level background (0x02) | 20 ms per half column pair | 1.12 s (first screen ~160 ms) | ~1.1 s (first screen ~200 ms) |
+| clear (0x08) | 4.375 ms per tile row, top to bottom | 140 ms | ~140 ms |
+
+Objects, text and the HUD are not paced: their hardware timing is unknown.
+
+## Commands sent while the MCU is busy
+
+At hardware speed the Z80 does not wait for the background to finish: it sends
+the stage text ~0.95 s after 0x02, while the MCU is still drawing. When the
+MCU then acknowledges 0x02, the mailbox already holds the new command. The
+firmware therefore only writes the 0xFE acknowledge if no new command is
+latched; otherwise it leaves the Z80's command byte alone and executes it next.
+(Writing 0xFE would both lose the text and make the main loop execute a bogus
+command 0xFE.) Measured in MAME: the text is drawn 1.12 s after 0x02, against
+1.13 s on the PCB.
