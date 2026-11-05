@@ -25,6 +25,8 @@ The HLE abstracts the MCU's own bus away, so we define a consistent one:
 | Range | Use |
 |-------|-----|
 | `0x0080..0x00FF` | internal RAM (variables + stack), as on 6801-family parts |
+| `0x0400` | CMDLAT: bit7 set by a Z80 write to mailbox offset 0; any MCU write clears it |
+| `0x0401` | SLOTLAT: bit n set by a Z80 write to mailbox offset `0x10 + 4n`; MCU writes 1 to clear |
 | `0x0800..0x0FFF` | shared mailbox (2 KB), same bytes the Z80 sees |
 | `0x2000..0x5FFF` | tilemap RAM (16 KB) the MCU writes into |
 | `0x6000..0xDFFF` | `km-z.4h`, mapped flat (logical address + `0x6000`) |
@@ -121,3 +123,16 @@ clock are not confirmed; the crystal next to the MCU on the PCB would settle it.
 
 Note: when reading sequentially the cipher index does not just increment; at a
 page crossing it jumps by 2, so the firmware recomputes it from the pointer.
+
+## Why mailbox latches
+
+The HLE reacts to the Z80's writes as events. A real MCU has to notice them.
+Polling mailbox[0] cannot work: command `0xFE` is acknowledged with `0xFE`, so a
+new `0xFE` and an acknowledged command look the same. Our LLE glue therefore
+latches "command written" and "slot n written" in two registers the firmware
+polls. This is our convention: the real board's signalling is unknown.
+
+When a command and slot triggers are pending together, the firmware handles the
+command first, while the HLE handles writes in arrival order. A slot update
+during a level draw is also handled after the draw. Final contents only differ
+if the Z80 relies on that ordering.

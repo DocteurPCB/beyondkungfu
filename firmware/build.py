@@ -5,7 +5,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from asm6803 import Assembler
 
-SOURCES = ("decode.s", "draw.s", "tables.s")
+SOURCES = ("decode.s", "draw.s", "main.s", "tables.s", "vectors.s")
 
 
 def build():
@@ -20,5 +20,9 @@ def build():
 
 if __name__ == "__main__":
     base, blob, asm = build()
-    print(f"firmware: {len(blob)} octets @ {base:#06x}-{base + len(blob) - 1:#06x} "
-          f"({0x1000 - len(blob)} octets libres sur 4096)")
+    used = asm.labels["FTAB"] + 256 - base          # code + tables, before the vectors
+    print(f"firmware: image {len(blob)} octets @ {base:#06x}; code + tables {used} octets, "
+          f"{0xFFF0 - base - used} libres avant les vecteurs")
+    if len(sys.argv) > 1:
+        open(sys.argv[1], "wb").write(blob)
+        print(f"écrit: {sys.argv[1]}")
