@@ -112,6 +112,21 @@ Measured with the emulator's 6801 cycle counts (worst level slot):
 | per-strip decode, like the HLE | ~70 M | ~70 s |
 | one pass per half column pair, table cipher | 1.25 M | 1.25 s |
 | + hot loop inlined | 1.02 M | 1.02 s |
+| + SP walks the cipher table, state machine, end-of-stream by address | 0.73 M | 0.73 s |
+
+Other commands, measured in MAME (6803 at 1 MHz E clock; the emulator's cycle
+model gives the same figures as MAME's core, e.g. 45.9 ms for a clear):
+
+| Command | before | after `vpwpair` / faster clear |
+|---------|--------|--------------------------------|
+| 0x0F object (average) | 41.6 ms | 29.8 ms |
+| 0x08 clear | 58.9 ms | 45.9 ms |
+| 0x0A fixed HUD | 47.8 ms | 36.5 ms |
+| 0x14 ROM text | 3.9 ms | 2.9 ms |
+| 0x0C mailbox text | 10.8 ms | 7.7 ms |
+
+At a stage start the Z80 waits for two clears, the fixed HUD and the
+background: about 0.85 s in all, against an instant HLE.
 
 A level needs 11,244 decoded bytes (attribute tokens cost two bytes) and 5,824
 cell writes. Even with the fastest 6801 idioms (stack pointer as read pointer),

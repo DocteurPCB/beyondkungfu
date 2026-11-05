@@ -66,6 +66,8 @@ FULL     .EQU $CC
 PART     .EQU $CD
 BOSSF    .EQU $CE
 EN       .EQU $CF
+TAT      .EQU $DB        ; attribute for vpwpair
+PAIRM    .EQU $DC        ; vpwpair: $0F = mask the attribute offset, $FF = don't
 
 ; =============================================================================
 reset:
@@ -152,9 +154,9 @@ c08:
         TST  RUNNING
         BEQ  c08b
         LDX  #TILEMAP           ; clear: (tile mbox[2], attribute mbox[1])
-ct_loop:
         LDAA MBOX+2
         LDAB MBOX+1
+ct_loop:
         STD  0,X
         STD  2,X
         STD  4,X
@@ -171,11 +173,26 @@ ct_loop:
         STD  26,X
         STD  28,X
         STD  30,X
-        STX  T2H
-        LDD  T2H
-        ADDD #32
-        STD  T2H
-        LDX  T2H
+        STD  32,X
+        STD  34,X
+        STD  36,X
+        STD  38,X
+        STD  40,X
+        STD  42,X
+        STD  44,X
+        STD  46,X
+        STD  48,X
+        STD  50,X
+        STD  52,X
+        STD  54,X
+        STD  56,X
+        STD  58,X
+        STD  60,X
+        STD  62,X
+        PSHB
+        LDAB #64
+        ABX
+        PULB
         CPX  #TMEND
         BNE  ct_loop
 c08b:
@@ -238,14 +255,11 @@ ih_ch:
         LDD  POSH
         ANDA #$0F
         STD  VOH
-        LDAA TCH
-        JSR  vpw
-        LDD  POSH
-        ADDD #1
-        ANDA #$0F
-        STD  VOH
         LDAA TATTR
-        JSR  vpw
+        STAA TAT
+        LDAA #$0F
+        STAA PAIRM
+        JSR  vpwpair
         LDAA POSL
         TAB
         ANDB #$80
@@ -376,6 +390,43 @@ vpw_drop:
         PULA
         RTS
 
+; vpwpair: tile TCH at logical offset VOH:VOL (12 bits), attribute TAT at the
+; next offset, each mirrored into the four pages.  Even offsets (the normal
+; case) take a fast path: the pair is one STD per page, and the physical row
+; address is offset>>7 * 512 + TILEMAP.  Odd offsets fall back to vpw, with
+; the attribute offset masked to 12 bits or not according to PAIRM.
+vpwpair:
+        LDAB VOL
+        BITB #$01
+        BNE  vp_slow
+        ASLB                    ; C = bit 7 of the offset
+        LDAA VOH
+        ROLA                    ; tile row = offset >> 7
+        ASLA                    ; row * 2 = high byte of row * 512
+        ADDA #$20               ; + TILEMAP ($2000)
+        LDAB VOL
+        ANDB #$7F
+        STD  T2H
+        LDX  T2H
+        LDAA TCH
+        LDAB TAT
+        STD  0,X
+        STD  $80,X
+        INC  T2H
+        LDX  T2H
+        STD  0,X
+        STD  $80,X
+        RTS
+vp_slow:
+        LDAA TCH
+        JSR  vpw
+        LDD  VOH
+        ADDD #1
+        ANDA PAIRM
+        STD  VOH
+        LDAA TAT
+        JMP  vpw
+
 ; --- rdlog: A = byte of the "blitterdat" region at logical D -----------------
 rdlog:
         CMPA #$80
@@ -443,20 +494,16 @@ dt_2:
 dt_ch:
         STAA TCH
         LDX  TPBH
+        LDAA 2,X
+        STAA TAT
         LDAA 1,X
         LDAB 0,X
         STD  POSH
         ANDA #$0F
         STD  VOH
-        LDAA TCH
-        JSR  vpw
-        LDD  POSH
-        ADDD #1
-        ANDA #$0F
-        STD  VOH
-        LDX  TPBH
-        LDAA 2,X
-        JSR  vpw
+        LDAA #$0F
+        STAA PAIRM
+        JSR  vpwpair
         LDAA POSL               ; advance 2 bytes, wrapping in the 64-tile row
         TAB
         ANDB #$80
@@ -541,23 +588,17 @@ do_n5f:
         ADDA #$60
         BRA  do_tile
 do_even:
-        TAB
-        LDX  #FTAB
-        ABX
-        LDAA 0,X
+        JSR  ffun
 do_tile:
         STAA TCH
-        LDD  DSH
-        ANDA #$0F
-        STD  VOH
-        LDAA TCH
-        JSR  vpw
-        LDD  DSH
-        ANDA #$0F
-        ADDD #1                 ; destination + 1 is NOT masked in the HLE
-        STD  VOH
         LDAA OATTR
-        JSR  vpw
+        STAA TAT
+        LDD  DSH
+        ANDA #$0F
+        STD  VOH
+        LDAA #$FF               ; destination + 1 is NOT masked in the HLE
+        STAA PAIRM
+        JSR  vpwpair
         LDX  NCH
         INX
         STX  NCH
@@ -866,3 +907,4 @@ write_num:
         JSR  vpw
         INC  XB
         RTS
+code_end:

@@ -8,7 +8,8 @@
 ;     is recomputed from the pointer, (PTRL + PTRH - $60) & $FF, which is
 ;     cheaper than a counter and correct across page crossings (where the
 ;     index jumps by 2, not 1);
-;   - the cipher + payload transform cost one or two table reads (tables.s).
+;   - the cipher + payload transform cost one table read (tables.s) and,
+;     for even indexes, a few instructions (ffun).
 ;
 ; Variables live in the 6801-family internal RAM ($80-$FF); 16-bit values are
 ; big-endian so LDX/LDD/STD work on them directly.
@@ -47,11 +48,22 @@ nextp:
         ADDA 0,X                ; odd index : c + PTAB[i]
         RTS
 np_even:
-        EORA 0,X                ; even index: FTAB[c ^ PTAB[i]]
+        EORA 0,X                ; even index: F(c ^ PTAB[i])
+        BRA  ffun
+
+; --- ffun: A = F(A) = ($A0 if A&$20 else $60) - A - (0 if A&1 else 2) --------
+ffun:
         TAB
-        LDX  #FTAB
-        ABX
-        LDAA 0,X
+        NEGA
+        ADDA #$60
+        BITB #$20
+        BEQ  ff_1
+        ADDA #$40
+ff_1:
+        BITB #$01
+        BNE  ff_2
+        SUBA #$02
+ff_2:
         RTS
 
 ; --- nextd: A = decrypted byte (no payload transform) at PTR; PTR++ ---------
@@ -65,10 +77,11 @@ nextd:
         STX  PTRH
         BITB #1
         BEQ  nd_even
-        STAA TMP                ; odd index : DTAB[i] - c
-        LDX  #DTAB
+        STAA TMP                ; odd index : $60 - PTAB[i] - c
+        LDX  #PTAB
         ABX
-        LDAA 0,X
+        LDAA #$60
+        SUBA 0,X
         SUBA TMP
         RTS
 nd_even:

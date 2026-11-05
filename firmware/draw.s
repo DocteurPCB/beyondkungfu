@@ -6,7 +6,8 @@
 ;
 ; The HLE re-decodes the four tile streams for every strip (1456 times per
 ; level).  Here each half of each column pair (upper 10 rows / lower 16 rows)
-; is decoded ONCE and every cell is written straight to its tilemap address:
+; is decoded ONCE, by the hot loop in drawloop.s, and every cell is written
+; straight to its tilemap address:
 ;   stream s, cell n  ->  column 2*PAIR + (s >> 1)
 ;                         tile x  (s & 1) * 2 + (n & 1)
 ;                         row     row0 + n / 2
@@ -26,9 +27,7 @@ PAIR     .EQU $88        ; column pair 0..27
 HALF     .EQU $89        ; 0 = upper rows 0-9, 1 = lower rows 10-25
 EXPC     .EQU $8A        ; expected cells per stream: 20 / 32
 SNUM     .EQU $8B        ; stream 0..3
-NCELL    .EQU $8C        ; cells seen in the current stream
 ATTR     .EQU $8D        ; current attribute
-CNT      .EQU $8E        ; cell count of stream 0
 ROWS     .EQU $8F
 BLKH     .EQU $90        ; level block pointer (logical)   } LDX BLKH
 BLKL     .EQU $91
@@ -38,6 +37,18 @@ WPH      .EQU $94        ; tilemap write pointer           } LDX WPH
 WPL      .EQU $95
 BASEH    .EQU $96        ; tilemap address of the half's top-left cell
 BASEL    .EQU $97
+XPBH     .EQU $D0        ; next page boundary of the data pointer } CPX XPBH
+XPBL     .EQU $D1
+XSH      .EQU $D2        ; X saved while writing a cell
+XSL      .EQU $D3
+SAVSPH   .EQU $D4        ; real stack pointer while SP walks PTAB
+SAVSPL   .EQU $D5
+SPTH     .EQU $D6        ; scratch for SP arithmetic
+SPTL     .EQU $D7
+WENDH    .EQU $D8        ; high byte of the write pointer after the last row
+STMP     .EQU $D9
+IFIRST   .EQU $DA
+PTABH    .EQU $FB        ; PTAB is page aligned at $FB00 (checked by build.py)
 
 draw_level:
         LDAB LEVEL
@@ -120,7 +131,7 @@ dh_s:
         LBCS dh_bad
         CPX  #$8000
         LBCC dh_bad
-        JSR  setp
+        JSR  setp               ; PTR = physical start of the stream
         LDAB SNUM               ; write pointer = BASE + (s>>1)*8 + (s&1)*4
         ANDB #1
         ASLB
@@ -135,92 +146,38 @@ dh_s:
         ABX
         STX  WPH
         CLR  ATTR
-        CLR  NCELL
-dh_c:
-; --- hot loop: fetch + decrypt + payload transform, inlined ------------------
-        LDX  PTRH
-        CPX  #DEND
-        BCC  dh_end             ; HLE: while (dataptr < 0x8000 ...)
-        LDAB PTRL
+        LDAA WPH                ; row after the last one: + (EXPC / 2) * 512
+        ADDA EXPC
+        STAA WENDH
+        LDAA PTRH               ; next page boundary of the data pointer
+        INCA
+        CLRB
+        STD  XPBH
+        LDAB PTRL               ; cipher index of the first byte
         ADDB PTRH
-        ADDB #$A0               ; B = cipher index of this byte
-        LDAA 0,X                ; cipher byte
-        INX
-        STX  PTRH
-        LDX  #PTAB
-        ABX
-        BITB #1
-        BEQ  c_even
-        ADDA 0,X                ; odd index : c + PTAB[i]
-        CMPA #$01
-        BHI  c_cell
-        BRA  c_tok
-c_even:
-        EORA 0,X                ; even index: FTAB[c ^ PTAB[i]]
-        TAB
-        LDX  #FTAB
-        ABX
-        LDAA 0,X
-        CMPA #$01
-        BLS  c_tok
-; --- tile cell ---------------------------------------------------------------
-c_cell:
-        LDAB NCELL
-        CMPB EXPC
-        BCC  c_over             ; beyond this half: counted, not drawn
-        LDX  WPH
-        STAA 0,X
-        LDAA ATTR
-        STAA 1,X
-        INCB
-        STAB NCELL
-        BITB #1
-        BEQ  c_down
-        INX                     ; even cell -> odd cell, 1 tile right
-        INX
-        STX  WPH
-        BRA  dh_c
-c_down:
-        LDAB #255               ; odd cell -> next tile row, back to x0:
-        ABX                     ; + 510 bytes
-        LDAB #255
-        ABX
-        STX  WPH
-        BRA  dh_c
-c_over:
-        INCB                    ; only reachable past the expected length,
-        STAB NCELL              ; where the HLE's 64-cell cap can matter
-        CMPB #64
-        BCS  dh_c
-        BRA  dh_end
-; --- tokens 00 (end) and 01 <attr> ------------------------------------------
-c_tok:
-        TSTA
-        BEQ  dh_end
+        ADDB #$A0
+        STAB IFIRST
+        CLRA
+        ADDD #PTAB-1            ; SP = PTAB - 1 + index: PULB gets PTAB[index]
+        STD  SPTH
         LDX  PTRH
-        CPX  #DEND
-        LBCC dh_bad             ; HLE: attribute byte past the end -> invalid
-        JSR  nextp
-        STAA ATTR
-        LBRA dh_c
-dh_end:
-        LDAA NCELL
-        TST  SNUM
-        BNE  dh_cmp
-        STAA CNT
-        BRA  dh_next
-dh_cmp:
-        CMPA CNT
-        BNE  dh_bad             ; streams of different length
-dh_next:
+        STS  SAVSPH
+        LDS  SPTH
+        LDAB IFIRST
+        BITB #1
+        LBNE S10
+        JMP  S00
+
+; --- exits of the hot loop (drawloop.s) ----------------------------------------
+dl_end:                         ; stream had exactly EXPC cells
+        LDS  SAVSPH
         INC  SNUM
         LDAA SNUM
         CMPA #4
         LBCS dh_s
-        LDAA CNT
-        CMPA EXPC
-        BNE  dh_bad
-        RTS
+        RTS                     ; all four streams valid
+dl_bad:
+        LDS  SAVSPH
 ; --- invalid data: the HLE leaves its default cell everywhere in this half ----
 dh_bad:
         LDX  BASEH
