@@ -24,11 +24,10 @@ The HLE abstracts the MCU's own bus away, so we define a consistent one:
 
 | Range | Use |
 |-------|-----|
-| `0x0020` | data-ROM window bank latch (bit0) |
 | `0x0080..0x00FF` | internal RAM (variables + stack), as on 6801-family parts |
 | `0x0800..0x0FFF` | shared mailbox (2 KB), same bytes the Z80 sees |
 | `0x2000..0x5FFF` | tilemap RAM (16 KB) the MCU writes into |
-| `0x8000..0xBFFF` | 16 KB window onto `km-z.4h`, half selected by the bank latch |
+| `0x6000..0xDFFF` | `km-z.4h`, mapped flat (logical address + `0x6000`) |
 | `0xF000..0xFFFF` | internal firmware ROM (4 KB) + reset/IRQ vectors |
 
 ## Data-ROM decoding  ✅ implemented in `firmware/decode.s`
@@ -99,10 +98,26 @@ Tile code bit 11 comes from the Z80's background-bank latch (I/O `0x83`), not
 the MCU. Rendering the level data with bank **1** gives the correct graphics
 (it matches real-hardware footage); bank 0 gives scrambled tiles.
 
-## Performance target
+## Performance
 
-The HLE paces level drawing at one strip per 175 µs, about 14 video frames for
-the 56 × 26 strips, which matches the hardware loading cadence. A naive
-per-strip decode (re-reading all four streams for every strip, like the HLE
-does) costs about 13,000 6803 instructions per strip, which is far too slow for
-a ~1 MHz MCU. The real firmware must decode each column pair's streams once.
+The HLE paces level drawing at one strip per 175 µs, about 14 video frames
+(~255 ms) for the 56 × 26 strips, tuned to match hardware footage.
+
+Measured with the emulator's 6801 cycle counts (worst level slot):
+
+| Version | Cycles | at 1 MHz |
+|---------|--------|----------|
+| per-strip decode, like the HLE | ~70 M | ~70 s |
+| one pass per half column pair, table cipher | 1.25 M | 1.25 s |
+| + hot loop inlined | 1.02 M | 1.02 s |
+
+A level needs 11,244 decoded bytes (attribute tokens cost two bytes) and 5,824
+cell writes. Even with the fastest 6801 idioms (stack pointer as read pointer),
+about 40 cycles per byte and 25 per cell remain, ~620 k cycles: roughly 0.6 s
+at 1 MHz. So either the MCU runs well above 1 MHz, or it is a part with faster
+instruction timings (HD6301-family parts execute many 6801 instructions in
+fewer cycles), or the decryption is partly done in hardware. The MCU type and
+clock are not confirmed; the crystal next to the MCU on the PCB would settle it.
+
+Note: when reading sequentially the cipher index does not just increment; at a
+page crossing it jumps by 2, so the firmware recomputes it from the pointer.

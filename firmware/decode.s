@@ -1,138 +1,104 @@
 ; -----------------------------------------------------------------------------
 ; Beyond Kung-Fu MCU firmware - data ROM access + decryption (6803 assembly)
 ;
-; Reimplements, in real 6803 code, the address-local cipher and payload
-; transform that the MAME HLE (m62_bkungfu_mcu.cpp) performs in C++.
-; Reference: decrypt_data() and decode_payload() in that file.
+; Behavioural equivalent of decrypt_data() / decode_payload() in the MAME HLE
+; (m62_bkungfu_mcu.cpp), built for speed:
+;   - km-z.4h is mapped flat at DATA ($6000-$DFFF), no banking;
+;   - bytes are read sequentially through PTR; the cipher index of each byte
+;     is recomputed from the pointer, (PTRL + PTRH - $60) & $FF, which is
+;     cheaper than a counter and correct across page crossings (where the
+;     index jumps by 2, not 1);
+;   - the cipher + payload transform cost one or two table reads (tables.s).
 ;
-; Calling convention: logical data-ROM address (0x0000..0x7FFF) in DAL/DAH.
-;   read_data      -> A = raw byte from km-z.4h (0xFF above 0x7FFF)
-;   decrypt        -> A = decrypted byte
-;   decode_payload -> A = payload-decoded byte
+; Variables live in the 6801-family internal RAM ($80-$FF); 16-bit values are
+; big-endian so LDX/LDD/STD work on them directly.
 ; -----------------------------------------------------------------------------
 
-; Variables live in the 6801-family internal RAM ($80-$FF).  16-bit values are
-; stored big-endian (high byte first) so they can be loaded with LDX/LDD.
-BANK_REG .EQU $20        ; data-ROM window bank latch (bit0)
-DAH      .EQU $80        ; logical data address, high  } LDX DAH
-DAL      .EQU $81        ; logical data address, low   }
-XH       .EQU $82        ; scratch: window physical addr, high
-XL       .EQU $83        ; scratch: window physical addr, low
-CIPH     .EQU $84        ; cipher (raw) byte
-IDX      .EQU $85        ; index = (DAL + DAH) & 0xFF
-VAL      .EQU $86        ; decrypted value (for payload transform)
-WH       .EQU $87        ; pword result, high  } LDX WH
-WL       .EQU $88        ; pword result, low   }
+DATA     .EQU $6000      ; km-z.4h, logical $0000-$7FFF
+DEND     .EQU $E000      ; DATA + $8000
+
+PTRH     .EQU $80        ; physical read pointer } LDX PTRH
+PTRL     .EQU $81        ;                       }
+TMP      .EQU $83        ; 2-byte scratch ($83-$84)
+WH       .EQU $85        ; 16-bit result } STD WH
+WL       .EQU $86        ;               }
 
         .ORG $F000
 
-; --- read_data: A = km-z.4h[DA], banked 16K window at $8000 ------------------
-read_data:
-        LDAA DAH
-        CMPA #$80
-        BCC  rd_ff              ; DA >= 0x8000 -> 0xFF
-        LDAA DAH
-        ANDA #$40               ; bit14 selects the 16K half
-        BEQ  rd_b0
-        LDAA #$01
-        STAA BANK_REG
-        BRA  rd_addr
-rd_b0:
-        CLRA
-        STAA BANK_REG
-rd_addr:
-        LDAA DAH
-        ANDA #$3F               ; offset within 16K half
-        ADDA #$80               ; -> high byte of $8000 + offset
-        STAA XH
-        LDAA DAL
-        STAA XL
-        LDX  XH
+; --- setp: D = logical address -> PTR = DATA + D ----------------------------
+setp:
+        ADDD #DATA
+        STD  PTRH
+        RTS
+
+; --- nextp: A = payload-decoded byte at PTR; PTR++ ---------------------------
+nextp:
+        LDAB PTRL               ; B = cipher index = logical lo + logical hi
+        ADDB PTRH
+        ADDB #$A0               ; - (DATA >> 8)
+        LDX  PTRH
+        LDAA 0,X                ; cipher byte
+        INX
+        STX  PTRH
+        LDX  #PTAB
+        ABX
+        BITB #1
+        BEQ  np_even
+        ADDA 0,X                ; odd index : c + PTAB[i]
+        RTS
+np_even:
+        EORA 0,X                ; even index: FTAB[c ^ PTAB[i]]
+        TAB
+        LDX  #FTAB
+        ABX
         LDAA 0,X
         RTS
-rd_ff:
-        LDAA #$FF
-        RTS
 
-; --- decrypt: A = decrypted byte at DA --------------------------------------
-decrypt:
-        LDAA DAL
-        ADDA DAH
-        STAA IDX                ; index
-        JSR  read_data
-        STAA CIPH               ; cipher
-        LDAA IDX
-        BITA #$01
-        BEQ  dec_even
-; odd: (index ^ (index&2 ? 0x7e : 0x12)) - 0x20 - cipher
-        LDAA IDX
-        BITA #$02
-        BEQ  dec_odd12
-        LDAA IDX
-        EORA #$7E
-        BRA  dec_odd_sub
-dec_odd12:
-        LDAA IDX
-        EORA #$12
-dec_odd_sub:
-        SUBA #$20
-        SUBA CIPH
-        RTS
-; even: cipher ^ index ^ (index&2 ? 0x5e : 0xae)
-dec_even:
-        LDAA IDX
-        BITA #$02
-        BEQ  dec_even_ae
-        LDAA CIPH
-        EORA IDX
-        EORA #$5E
-        RTS
-dec_even_ae:
-        LDAA CIPH
-        EORA IDX
-        EORA #$AE
-        RTS
-
-; --- decode_payload: A = payload-decoded byte at DA -------------------------
-decode_payload:
-        JSR  decrypt
-        STAA VAL
-        LDAA DAL
-        ADDA DAH
-        BITA #$01
-        BEQ  dp_even
-; odd: 0x60 - value
-        LDAA #$60
-        SUBA VAL
-        RTS
-dp_even:
-        LDAA VAL
-        BITA #$20
-        BEQ  dp_base60
-        LDAA #$A0
-        BRA  dp_sub
-dp_base60:
-        LDAA #$60
-dp_sub:
-        SUBA VAL                ; A = base - value
-        LDAB VAL
-        BITB #$01
-        BNE  dp_done            ; value odd -> subtract 0
-        SUBA #$02               ; value even -> subtract 2
-dp_done:
-        RTS
-
-; --- pword: WH/WL = decode_payload(DA) | decode_payload(DA+1) << 8 ----------
-; (little-endian payload word).  DAH/DAL is preserved.
-pword:
-        JSR  decode_payload
-        STAA WL
-        LDX  DAH
+; --- nextd: A = decrypted byte (no payload transform) at PTR; PTR++ ---------
+nextd:
+        LDAB PTRL
+        ADDB PTRH
+        ADDB #$A0
+        LDX  PTRH
+        LDAA 0,X
         INX
-        STX  DAH
-        JSR  decode_payload
+        STX  PTRH
+        BITB #1
+        BEQ  nd_even
+        STAA TMP                ; odd index : DTAB[i] - c
+        LDX  #DTAB
+        ABX
+        LDAA 0,X
+        SUBA TMP
+        RTS
+nd_even:
+        LDX  #PTAB              ; even index: c ^ PTAB[i]
+        ABX
+        EORA 0,X
+        RTS
+
+; --- random access (D = logical address) ------------------------------------
+payload_at:
+        BSR  setp
+        BRA  nextp
+decrypt_at:
+        BSR  setp
+        BRA  nextd
+
+; --- pwordn: D = little-endian payload word at PTR (PTR += 2) ----------------
+pwordn:
+        BSR  nextp
+        STAA WL
+        BSR  nextp
         STAA WH
-        LDX  DAH
-        DEX
-        STX  DAH
+        LDD  WH
+        RTS
+
+; --- rword: D = little-endian plaintext word at logical address D -----------
+rword:
+        ADDD #DATA
+        STD  TMP
+        LDX  TMP
+        LDAA 1,X
+        LDAB 0,X
         RTS

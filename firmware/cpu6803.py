@@ -2,23 +2,50 @@
 """Tiny Motorola 6803/6801 CPU emulator (subset) used to validate MCU firmware.
 
 Memory model (our chosen MCU bus convention, see docs/SPEC.md):
-  0x0020        : data-ROM window bank latch (bit0)
   0x0080-0x00FF : internal RAM (variables + stack)
   0x0800-0x0FFF : shared mailbox (2K)
   0x2000-0x5FFF : tilemap RAM (16K)
-  0x8000-0xBFFF : 16K window onto km-z.4h, half selected by the bank latch
+  0x6000-0xDFFF : km-z.4h, flat (logical address + 0x6000)
   0xF000-0xFFFF : internal firmware ROM (4K) + vectors
+
+Cycle counts follow the 6801/6803 datasheet timings for the instructions the
+firmware uses (approximate for a few rarely used ones).
 """
 from asm6803 import OPC
 
-BANK_REG = 0x0020
-WIN_BASE = 0x8000
-WIN_SIZE = 0x4000
+DATA_BASE = 0x6000
+DATA_END = 0xE000
 REV = {v: k for k, v in OPC.items()}
 
 MEMOPS = {"INC", "DEC", "CLR", "TST"}
 WIDE_LD = {"LDX", "LDD", "LDS"}
 WIDE_ST = {"STX", "STD", "STS"}
+WIDE = WIDE_LD | WIDE_ST
+ARITH16 = {"ADDD", "SUBD", "CPX"}
+INH_CYC = {"INX": 3, "DEX": 3, "INS": 3, "DES": 3, "ABX": 3, "ASLD": 3, "LSLD": 3,
+           "LSRD": 3, "PSHA": 3, "PSHB": 3, "PULA": 4, "PULB": 4, "PSHX": 4,
+           "PULX": 5, "RTS": 5, "RTI": 10, "MUL": 10, "TSX": 3, "TXS": 3}
+
+
+def cycles(mnem, mode):
+    """6801/6803 cycle count for one instruction."""
+    if mode == "INH":  return INH_CYC.get(mnem, 2)
+    if mode == "REL":  return 6 if mnem == "BSR" else 3
+    if mode == "IMM8": return 2
+    if mode == "IMM16": return 4 if mnem in ARITH16 else 3
+    if mnem == "JMP":  return 3
+    if mnem in MEMOPS: return 6
+    if mode == "DIR":
+        if mnem == "JSR": return 5
+        return 5 if mnem in ARITH16 else 4 if mnem in WIDE else 3
+    # IDX / EXT
+    if mnem == "JSR": return 6
+    if mnem in ARITH16: return 6
+    if mnem in WIDE: return 5
+    return 4
+
+
+CYC = {op: cycles(m, md) for op, (m, md) in REV.items()}
 
 
 class CPU6803:
@@ -29,12 +56,13 @@ class CPU6803:
         self.X = 0; self.SP = 0x00FF; self.PC = 0
         self.H = self.I = self.N = self.Z = self.V = self.C = 0
         self.steps = 0
+        self.cycles = 0
 
     # ---- memory ----
     def rd(self, a):
         a &= 0xFFFF
-        if WIN_BASE <= a < WIN_BASE + WIN_SIZE:
-            idx = (self.m[BANK_REG] & 1) * WIN_SIZE + (a - WIN_BASE)
+        if DATA_BASE <= a < DATA_END:
+            idx = a - DATA_BASE
             return self.data_rom[idx] if idx < len(self.data_rom) else 0xFF
         return self.m[a]
 
@@ -121,6 +149,7 @@ class CPU6803:
             mnem, mode = REV[op]
         except KeyError:
             raise Exception(f"unimplemented opcode {op:02x} at {pc0:04x}")
+        self.cycles += CYC[op]
 
         if mode == "REL":
             rel = self._fetch()
