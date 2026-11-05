@@ -40,6 +40,16 @@ the firmware as `roms/bkungfulle/mcu` (or `mcu` inside `bkungfulle.zip`).
 ./bkungfu bkungfulle -rompath roms
 ```
 
+## Tested
+
+Built from MAME master (Nov 2026) with the subtarget command above. `bkungfulle`
+passes `-verifyroms`, boots, and runs the intro, title, attract mode and a
+game. Recording 60 s of both sets and comparing frame by frame: 96 % of the
+LLE frames are exact copies of HLE frames, shifted by 50 ms (intro) to 300 ms
+(in game) because the LLE MCU is slower than the instant HLE. The remaining
+frames show screens while they are being drawn (title objects, stage
+background), which the HLE never shows. No frame differs in content.
+
 ## Caveats
 
 - This is not Irem's firmware. It reproduces the HLE's behaviour, it does not

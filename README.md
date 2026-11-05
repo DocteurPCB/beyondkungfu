@@ -80,7 +80,8 @@ python3 tools/render_level.py   /path/to/bkungfu_roms out/   # PNG of each level
 | Mailbox loop + all commands (`main.s`) | ✅ tilemap + mailbox identical to HLE over the full scenario |
 | Objects, text, HUD slots | ✅ same scenario: 17 objects, 128 ROM texts, mailbox text, 8 slots and edge cases |
 | Assumed MCU memory map | 🟡 draft (see `docs/SPEC.md`) |
-| MAME LLE patch (`mame-patch/`) | 🟡 written, being built and tested |
+| MAME LLE patch (`mame-patch/`) | ✅ builds and runs: `bkungfulle` boots, attract mode and gameplay work |
+| In-MAME comparison with the HLE | ✅ 96 % of LLE frames are exact copies of HLE frames, time-shifted; the rest are mid-draw frames (the HLE draws instantly) |
 
 ## Credits
 
