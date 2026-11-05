@@ -1,0 +1,16 @@
+# Copyrighted Irem ROM data - never commit these. Users supply their own.
+*.zip
+*.bin
+mcu
+km-*
+ky_*
+dr*.bin
+*.4h
+*.7j
+# Python
+__pycache__/
+*.pyc
+# Build / scratch
+*.o
+*.lst
+*.map

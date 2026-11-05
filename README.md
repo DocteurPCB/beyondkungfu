@@ -1,0 +1,71 @@
+# Beyond Kung-Fu — MCU firmware reconstruction
+
+A from-scratch reconstruction of the missing protection/graphics **MCU firmware**
+for Irem's unreleased *Beyond Kung-Fu* (location test, 1987), an Irem M62-based
+sequel to *Kung-Fu Master*.
+
+## What this is (and what it is not)
+
+The game's PCB uses a Motorola-6800-family microcontroller (a 6801/6303-class
+part with ~4 KB of **internal mask ROM**) that acts as a tilemap/graphics
+coprocessor: the Z80 sends it commands through a mailbox and the MCU decodes a
+partially-encrypted external ROM (`km-z.4h`) into the background and HUD tiles.
+
+That internal ROM has **never been dumped** (it is `NO_DUMP` in MAME). MAME runs
+the game today via a **C++ high-level emulation (HLE)** of the MCU's behaviour
+(`src/mame/irem/m62_bkungfu_mcu.cpp`, by David Haywood & Andrea Bogazzi), which
+is why the driver is flagged `MACHINE_UNEMULATED_PROTECTION`.
+
+This project writes a **real 6803 firmware** that is *functionally equivalent*
+to that HLE: same mailbox protocol in, same tilemap bytes out. The goal is a
+low-level (LLE) replacement that a patched MAME can execute on a real CPU core.
+
+> ⚠️ **Honesty note.** This is **not** Irem's original firmware and cannot be:
+> the original bytes are unrecoverable without decapping the chip. It is a
+> homebrew, behaviourally-equivalent reimplementation. It will **not** run in a
+> stock MAME — stock MAME uses the HLE device and never executes an `mcu` file.
+> Running this firmware requires a MAME source patch (a real `m6803`/`hd6301`
+> core + a memory map) and a recompile. See `mame-patch/` (WIP).
+
+## Repository layout
+
+```
+firmware/
+  asm6803.py      Minimal 6803/6801 assembler (opcode table + two-pass)
+  cpu6803.py      Minimal 6803 CPU emulator (used for validation, no MAME needed)
+  decode.s        VALIDATED: data-ROM access + decryption + payload transform
+  test_decode.py  Assembles decode.s, runs it, compares byte-for-byte to the HLE
+tools/
+  verify_decode.py  Dumps the decrypted data-ROM structures (level tables, etc.)
+docs/
+  SPEC.md         Reverse-engineered MCU behaviour (commands, formats, memory map)
+mame-patch/       (planned) LLE driver variant + build instructions
+```
+
+## ROMs
+
+No ROM data is included (copyright Irem). To run the tests, supply your own
+`km-z.4h` (the MCU's external data ROM, 32 KB, from the `bkungfu` set):
+
+```bash
+python3 firmware/test_decode.py /path/to/km-z.4h   # expects byte-exact match
+python3 tools/verify_decode.py  /path/to/km-z.4h   # dumps decoded structures
+```
+
+## Status
+
+| Piece | State |
+|-------|-------|
+| Data-ROM cipher + payload transform (`decode.s`) | ✅ validated byte-exact vs HLE over all 0x8000 addresses |
+| 6803 assembler + emulator toolchain | ✅ working |
+| Command dispatcher / mailbox loop | ⬜ todo |
+| Level-strip drawing, objects, text, HUD | ⬜ todo |
+| Assumed MCU memory map | 🟡 draft (see `docs/SPEC.md`) |
+| MAME LLE patch + on-screen validation | ⬜ todo (needs recompiled MAME) |
+
+## Credits
+
+Behavioural specification derived from the MAME HLE
+(`m62_bkungfu_mcu.cpp`, BSD-3-Clause, David Haywood & Andrea Bogazzi) and the
+driver (`m62_bkungfu.cpp`, GPL-2.0+, Jonas Jago). This repository contains only
+original code and documentation; no MAME source is vendored here.
